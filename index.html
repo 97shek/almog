@@ -1,0 +1,1281 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>תיק ההשקעות של אלמוג</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0A0D13;
+    --surface:#12161F;
+    --surface-2:#171C27;
+    --border:#232A38;
+    --border-soft:#1B212C;
+    --ink:#F3F5F9;
+    --text:#D7DBE3;
+    --muted:#828B9C;
+    --muted-dim:#565F70;
+    --accent:#4FD1C5;
+    --gain:#3FDB8F;
+    --loss:#FF6B7F;
+    --pre:#F2B84A;
+    --post:#57A6F2;
+    --closed:#828B9C;
+    --radius:16px;
+  }
+  /* תצוגה בהירה - נדלקת ע"י data-theme="light" על ה-<html>, ברירת המחדל נשארת כהה */
+  :root[data-theme="light"]{
+    --bg:#F6F7FA;
+    --surface:#FFFFFF;
+    --surface-2:#F0F2F6;
+    --border:#E2E5EC;
+    --border-soft:#EBEDF2;
+    --ink:#161A22;
+    --text:#3C4250;
+    --muted:#6B7280;
+    --muted-dim:#96A0AC;
+    --accent:#0E9488;
+    --gain:#1EA363;
+    --loss:#DE4360;
+    --pre:#B87E14;
+    --post:#2C74B3;
+    --closed:#8A93A3;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  html{transition:background .25s ease;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:Tahoma,'Arial Hebrew',Arial,sans-serif;
+    min-height:100vh;
+    padding:0 0 70px;
+    -webkit-font-smoothing:antialiased;
+    position:relative;
+    transition:background .25s ease, color .25s ease;
+  }
+  body::after{
+    content:'';
+    position:fixed; inset:0; z-index:-1; pointer-events:none;
+    background:radial-gradient(900px 560px at 12% -10%, rgba(79,209,197,0.06), transparent 58%);
+  }
+  .num{font-family:'IBM Plex Mono',monospace; direction:ltr; unicode-bidi:isolate;}
+  .wrap{max-width:1180px;margin:0 auto; padding:0 20px;}
+
+  @keyframes riseIn{
+    from{opacity:0; transform:translateY(10px);}
+    to{opacity:1; transform:translateY(0);}
+  }
+  .reveal{opacity:0; animation:riseIn .7s cubic-bezier(.16,1,.3,1) forwards;}
+  .r1{animation-delay:.02s;} .r2{animation-delay:.08s;} .r3{animation-delay:.14s;}
+  .r4{animation-delay:.20s;} .r5{animation-delay:.26s;} .r5b{animation-delay:.32s;}
+  @media (prefers-reduced-motion: reduce){ .reveal{animation:none; opacity:1;} }
+
+  /* Ticker tape */
+  .tv-tape{
+    border-bottom:1px solid var(--border-soft);
+    direction:ltr;
+    margin-bottom:34px;
+  }
+
+  /* Top bar - שם ולוגו ממורכזים, מצב השוק עבר לתוך הכרטיס המרכזי,
+     וכפתור מעבר בין תצוגה כהה/בהירה יושב בפינה */
+  .topbar{
+    position:relative;
+    display:flex; flex-direction:column; align-items:center;
+    padding:30px 0 2px;
+    margin-bottom:22px;
+    text-align:center;
+  }
+  .brand{display:flex; flex-direction:column; align-items:center; gap:10px;}
+  .brand-mark{
+    width:38px; height:38px; border-radius:10px; flex-shrink:0;
+    background:var(--surface);
+    border:1px solid var(--border);
+    display:flex; align-items:flex-end; justify-content:center; gap:3px;
+    padding:9px 9px 7px;
+  }
+  .brand-mark i{ display:block; width:3px; border-radius:1px; background:var(--muted-dim); }
+  .brand-mark i:nth-child(1){height:7px;}
+  .brand-mark i:nth-child(2){height:13px; background:var(--accent);}
+  .brand-mark i:nth-child(3){height:9px;}
+  .brand-name{font-size:28px; font-weight:700; letter-spacing:-0.01em; color:var(--ink);}
+  .brand-sub{font-size:12px; color:var(--muted); margin-top:2px;}
+
+  .topbar-actions{
+    position:absolute; top:30px; left:0;
+    display:flex; align-items:center; gap:8px;
+  }
+  .theme-toggle{
+    display:inline-flex; align-items:center; gap:7px;
+    background:var(--surface); border:1px solid var(--border); color:var(--text);
+    padding:8px 15px; border-radius:100px; font-size:12.5px; font-weight:600;
+    font-family:Tahoma,Arial,sans-serif;
+    cursor:pointer; transition:border-color .2s ease, background .25s ease, color .25s ease;
+  }
+  .theme-toggle:hover{border-color:var(--muted-dim);}
+  .theme-toggle svg{width:14px; height:14px; flex-shrink:0;}
+  @media (max-width:560px){ .topbar-actions{position:static; margin-top:14px; justify-content:center;} }
+
+  /* המניה החזקה/חלשה ביותר היום */
+  .movers-bar{
+    display:grid; grid-template-columns:1fr 1fr; gap:16px;
+    margin-bottom:16px;
+  }
+  .mover-card{
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+    padding:18px 22px;
+    box-shadow:0 24px 50px -34px rgba(0,0,0,0.5);
+  }
+  .mover-label{font-size:12px; color:var(--muted); margin-bottom:10px;}
+  .mover-row{display:flex; align-items:baseline; justify-content:space-between; gap:10px;}
+  .mover-ticker{font-size:15px; font-weight:700; color:var(--ink);}
+  .mover-pct{font-size:20px; font-weight:700;}
+  .mover-sub{font-size:11.5px; color:var(--muted-dim); margin-top:3px; text-align:left;}
+  @media (max-width:560px){ .movers-bar{grid-template-columns:1fr;} }
+
+  .status-pill{
+    display:inline-flex; align-items:center; gap:8px;
+    background:var(--surface-2); color:var(--muted);
+    border-radius:100px;
+    padding:6px 14px 6px 12px;
+    font-size:12px; font-weight:600;
+    transition:background .3s ease, color .3s ease;
+  }
+  .status-pill.open{background:rgba(63,219,143,0.12); color:var(--gain);}
+  .status-pill.pre{background:rgba(242,184,74,0.12); color:var(--pre);}
+  .status-pill.post{background:rgba(87,166,242,0.12); color:var(--post);}
+  .status-pill .state-sub{opacity:.7; font-weight:500;}
+  .dot{width:6px;height:6px;border-radius:50%; background:currentColor; position:relative; flex-shrink:0;}
+  .dot::after{content:''; position:absolute; inset:-5px; border-radius:50%; border:1px solid currentColor; opacity:0;}
+  .dot.live{animation:pulse 1.8s ease-out infinite;}
+  @keyframes pulse{
+    0%{box-shadow:0 0 0 0 currentColor; opacity:1;}
+    70%{box-shadow:0 0 0 8px transparent; opacity:0.5;}
+    100%{box-shadow:0 0 0 0 transparent; opacity:1;}
+  }
+
+  /* Hero - כרטיס אחד ממורכז שמאחד את מצב השוק, השווי והשינויים */
+  .hero{
+    display:grid;
+    grid-template-columns:1.35fr 1fr;
+    gap:16px;
+    margin-bottom:16px;
+  }
+  @media (max-width:880px){ .hero{grid-template-columns:1fr;} }
+
+  .hero-main{
+    position:relative;
+    background:linear-gradient(155deg, var(--surface) 0%, var(--surface-2) 100%);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    padding:34px 38px 30px;
+    overflow:hidden;
+    box-shadow:0 26px 54px -32px rgba(4,20,17,0.5);
+    text-align:center;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+  }
+  .hero-label{font-size:13px; font-weight:600; color:var(--muted); margin-bottom:12px; letter-spacing:.01em;}
+  .hero-value{
+    font-size:clamp(38px,6vw,66px);
+    font-weight:700;
+    letter-spacing:-0.03em;
+    line-height:1;
+    color:var(--ink);
+  }
+  .hero-value.gain{color:var(--gain);}
+  .hero-value.loss{color:var(--loss);}
+  .hero-sub{font-size:13px; color:var(--muted); margin-top:10px;}
+  .hero-badges{display:flex; align-items:center; justify-content:center; gap:10px; margin-top:20px; flex-wrap:wrap;}
+  .hero-badges .delta{
+    font-size:13.5px; font-weight:600;
+    padding:6px 14px; border-radius:100px;
+    background:var(--surface-2); color:var(--muted);
+  }
+  .hero-badges .delta.gain{background:rgba(63,219,143,0.12); color:var(--gain);}
+  .hero-badges .delta.loss{background:rgba(255,107,127,0.12); color:var(--loss);}
+  .hero-badges .delta.flat{background:var(--surface-2); color:var(--muted);}
+  .hero-badges .ils-line{font-size:12px; color:var(--muted-dim);}
+  .hero-updated{font-size:11.5px; color:var(--muted-dim); margin-top:22px;}
+
+  .hero-stats{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    padding:6px 26px;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    box-shadow:0 26px 54px -32px rgba(4,20,17,0.5);
+  }
+  .hstat{
+    padding:14px 2px; border-top:1px solid var(--border-soft);
+    transition:padding-inline-start .2s cubic-bezier(.16,1,.3,1);
+  }
+  .hstat:first-child{border-top:none;}
+  .hstat:hover{padding-inline-start:10px;}
+  .hstat .k{font-size:11.5px; color:var(--muted); margin-bottom:5px;}
+  .hstat .v{font-size:17px; font-weight:700; color:var(--ink);}
+  .hstat .sub{font-size:11px; color:var(--muted-dim); margin-top:2px;}
+  .hstat .v.gain{color:var(--gain);}
+  .hstat .v.loss{color:var(--loss);}
+  .hstat .v.flat{color:var(--ink);}
+
+  /* Controls */
+  .controls{
+    display:flex; justify-content:flex-end; align-items:center;
+    gap:10px; margin-bottom:14px;
+  }
+  select#sortSelect{
+    background:var(--surface); border:1px solid var(--border); color:var(--text);
+    padding:9px 14px; border-radius:10px; font-family:Tahoma,Arial,sans-serif; font-size:13px;
+    cursor:pointer; transition:border-color .2s ease;
+  }
+  select#sortSelect:hover{border-color:var(--muted-dim);}
+  select#sortSelect:focus{outline:2px solid var(--accent); outline-offset:1px;}
+  button#refresh{
+    background:var(--accent); border:1px solid var(--accent); color:#04201B;
+    padding:9px 18px; border-radius:10px; font-family:Tahoma,Arial,sans-serif; font-size:13px; font-weight:700;
+    cursor:pointer; display:flex; align-items:center; gap:8px;
+    transition:transform .15s cubic-bezier(.16,1,.3,1), filter .2s ease;
+  }
+  button#refresh:hover{filter:brightness(1.08);}
+  button#refresh:active{transform:scale(.96);}
+  button#refresh svg{width:13px;height:13px;transition:transform .6s ease;}
+  button#refresh.spinning svg{transform:rotate(360deg);}
+
+  /* Table */
+  .table-card{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    overflow:hidden;
+    box-shadow:0 24px 50px -34px rgba(0,0,0,0.55);
+  }
+  table{width:100%; border-collapse:collapse; font-size:13.5px;}
+  thead th{
+    text-align:right; font-size:10px; font-weight:600; color:var(--muted-dim);
+    text-transform:uppercase; letter-spacing:.06em; padding:15px 14px 11px;
+    border-bottom:1px solid var(--border); white-space:nowrap;
+  }
+  thead th.num, tbody td.num{text-align:left;}
+  tbody td{padding:14px; border-bottom:1px solid var(--border-soft); white-space:nowrap;}
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr{
+    transition:background .18s ease;
+    animation:riseIn .45s cubic-bezier(.16,1,.3,1) both;
+    box-shadow:inset 3px 0 0 0 transparent;
+  }
+  /* שם המחלקה של השורה השתנה מ-"gain"/"loss" ל-"row-gain"/"row-loss" בכוונה:
+     ל-"gain"/"loss" יש כלל CSS גלובלי שקובע color, וכיוון שזה יושב על ה-<tr>
+     עצמו, ה-color היה עובר בירושה גם לתאים שאין להם צבע מפורש (מספר מניות,
+     מחיר ממוצע, מחיר נוכחי, שווי שוק, % מהתיק) - וצבע אותם בטעות בירוק/אדום.
+     row-gain/row-loss קובעים רק את הפס הצבעוני בצד, בלי color, כך שרק
+     התאים שבאמת משתנים (רווח/הפסד, % ושינוי יומי) צבועים. */
+  tbody tr.row-gain{box-shadow:inset 3px 0 0 0 var(--gain);}
+  tbody tr.row-loss{box-shadow:inset 3px 0 0 0 var(--loss);}
+  /* :not(.gain):not(.loss):not(.flat) חשוב כאן: בלעדיו ה-selector הזה יותר ספציפי
+     מ-.gain/.loss/.flat (class בודד) ומנצח אותם - מה שבטעות "מבטל" את הצביעה
+     בדיוק בעמודות שאמורות להשתנות (רווח/הפסד, % ושינוי יומי). */
+  tbody td.num:not(.gain):not(.loss):not(.flat){color:var(--text);}
+  tbody tr:nth-child(1){animation-delay:.02s;} tbody tr:nth-child(2){animation-delay:.05s;}
+  tbody tr:nth-child(3){animation-delay:.08s;} tbody tr:nth-child(4){animation-delay:.11s;}
+  tbody tr:nth-child(5){animation-delay:.14s;} tbody tr:nth-child(6){animation-delay:.17s;}
+  tbody tr:nth-child(7){animation-delay:.20s;} tbody tr:nth-child(8){animation-delay:.23s;}
+  tbody tr:hover{background:rgba(255,255,255,0.025);}
+  /* התיקון: .ticker נושא class="num" בשביל ה-LTR isolation של הסימבול הלועזי,
+     אבל direction:ltr הופך את ברירת המחדל של text-align ל-left - מה שיצר חוסר-יישור
+     מול שם החברה מתחתיו (שנשאר מיושר לימין). מיישרים את שניהם לימין במפורש. */
+  .ticker{font-weight:700; font-size:14px; color:var(--ink); text-align:right;}
+  .ticker-name{font-size:11px; color:var(--muted); font-weight:400; margin-top:1px; text-align:right;}
+  .gain{color:var(--gain);}
+  .loss{color:var(--loss);}
+  .flat{color:var(--muted);}
+  .badge{
+    display:inline-flex; align-items:center; gap:5px; padding:3px 10px; border-radius:100px;
+    font-size:10px; font-weight:600; white-space:nowrap; letter-spacing:.02em;
+  }
+  .badge.pre{background:rgba(242,184,74,0.12); color:var(--pre);}
+  .badge.post{background:rgba(87,166,242,0.12); color:var(--post);}
+  .badge.closed{background:rgba(130,139,156,0.14); color:var(--closed);}
+  .badge.open{background:rgba(63,219,143,0.12); color:var(--gain);}
+  .ext-price{font-size:11px; color:var(--muted-dim); margin-top:2px;}
+  .ext-pct{font-size:10.5px; font-weight:600; margin-top:1px;}
+  .err{color:var(--muted); font-size:11px; font-style:italic;}
+  .skeleton{
+    display:inline-block; width:60px; height:12px; border-radius:4px;
+    background:linear-gradient(90deg,var(--surface-2) 25%,#1c2330 37%,var(--surface-2) 63%);
+    background-size:400% 100%; animation:shimmer 1.4s ease infinite;
+  }
+  @keyframes shimmer{0%{background-position:100% 0;}100%{background-position:0 0;}}
+
+  tfoot td{
+    padding:15px 14px; font-weight:700;
+    border-top:1px solid var(--border); background:var(--surface-2); color:var(--ink);
+  }
+
+  /* Charts */
+  .chart-bento{
+    display:grid; grid-template-columns:1.2fr 1fr;
+    margin-top:16px;
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    overflow:hidden;
+    box-shadow:0 26px 54px -34px rgba(4,20,17,0.5);
+  }
+  .chart-pane{ position:relative; padding:26px 24px; overflow:hidden; }
+  .chart-pane + .chart-pane{border-inline-start:1px solid var(--border-soft);}
+  .chart-title{
+    font-size:14px; font-weight:700; color:var(--text); margin-bottom:16px;
+    text-align:center;
+  }
+  .chart-legend{display:flex; flex-wrap:wrap; gap:8px 14px; justify-content:center; margin-top:12px; font-size:11.5px; color:var(--text);}
+  .chart-legend .item{display:flex; align-items:center; gap:5px;}
+  .chart-legend .swatch{width:8px; height:8px; border-radius:2px; flex-shrink:0;}
+  @media (max-width:760px){ .chart-bento{grid-template-columns:1fr;} .chart-pane + .chart-pane{border-inline-start:none; border-top:1px solid var(--border-soft);} }
+
+  #donutChart{position:relative;}
+  #donutChart svg circle{transition:opacity .15s ease;}
+  #donutChart svg:hover circle{opacity:.4;}
+  #donutChart svg circle:hover{opacity:1 !important;}
+  .chart-tooltip{
+    position:absolute; top:0; left:0;
+    background:var(--ink); color:var(--bg);
+    padding:6px 11px; border-radius:8px; font-size:12px; font-weight:700;
+    white-space:nowrap; pointer-events:none;
+    transform:translate(-50%,-130%);
+    opacity:0; transition:opacity .12s ease;
+    z-index:6; direction:ltr; unicode-bidi:isolate;
+  }
+  .chart-tooltip.show{opacity:1;}
+
+  .sub-num{font-size:10px; color:var(--muted-dim); margin-top:1px;}
+
+  /* גרף העמודות: כל עמודה "צומחת" מקו האפס עם עיכוב מדורג, בדיוק כמו העוגה,
+     ומקבלת tooltip באחוזים במעבר עכבר (delegation יחיד על #barChart). */
+  @keyframes barGrow{
+    from{ transform:scaleY(0); opacity:.35; }
+    to{ transform:scaleY(1); opacity:1; }
+  }
+  @keyframes barFade{
+    from{ opacity:0; transform:translateY(4px); }
+    to{ opacity:1; transform:translateY(0); }
+  }
+  .bar-rect{
+    transform-box:fill-box;
+    animation:barGrow .6s cubic-bezier(.16,1,.3,1) both;
+    transition:opacity .15s ease, filter .15s ease;
+    cursor:pointer;
+  }
+  .bar-label{ animation:barFade .5s ease both; }
+  #barChart svg:hover .bar-rect{opacity:.4;}
+  #barChart svg .bar-rect:hover{opacity:1 !important; filter:brightness(1.18);}
+
+  .info-section{margin-top:26px;}
+  .info-heading{font-size:14px; font-weight:700; color:var(--text); margin-bottom:14px;}
+  .info-list{
+    display:grid; grid-template-columns:1fr 1fr; gap:0 28px;
+  }
+  .info-row{
+    padding:16px 2px; border-top:1px solid var(--border-soft);
+    display:flex; gap:14px; align-items:baseline;
+    animation:riseIn .45s cubic-bezier(.16,1,.3,1) both;
+    transition:padding-inline-start .2s cubic-bezier(.16,1,.3,1), border-color .2s ease;
+  }
+  .info-row:hover{padding-inline-start:10px; border-color:var(--muted-dim);}
+  .info-row .t{font-size:13px; font-weight:700; flex-shrink:0; min-width:56px; color:var(--ink); text-align:right;}
+  .info-row .d{font-size:12px; color:var(--muted); line-height:1.65;}
+  .info-row:nth-child(1){animation-delay:.02s;} .info-row:nth-child(2){animation-delay:.05s;}
+  .info-row:nth-child(3){animation-delay:.08s;} .info-row:nth-child(4){animation-delay:.11s;}
+  .info-row:nth-child(5){animation-delay:.14s;} .info-row:nth-child(6){animation-delay:.17s;}
+  .info-row:nth-child(7){animation-delay:.20s;} .info-row:nth-child(8){animation-delay:.23s;}
+  @media (max-width:760px){ .info-list{grid-template-columns:1fr;} }
+
+  footer{
+    margin-top:30px; text-align:center; color:var(--muted-dim); font-size:11.5px; line-height:1.7;
+  }
+  footer a{color:var(--accent); text-decoration:none;}
+  footer strong{color:var(--muted);}
+
+  @media (max-width:760px){
+    .table-card{overflow-x:auto;}
+    table{min-width:820px;}
+    .hero-main{padding:28px 22px;}
+  }
+  @media (prefers-reduced-motion: reduce){
+    .dot.live{animation:none;}
+    button#refresh.spinning svg{transition:none;}
+    tbody tr, .info-row{animation:none;}
+    .bar-rect, .bar-label{animation:none !important; opacity:1 !important; transform:none !important;}
+  }
+</style>
+</head>
+<body>
+<div class="tv-tape">
+  <div class="tradingview-widget-container">
+    <div class="tradingview-widget-container__widget"></div>
+    <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-ticker-tape.js" async>
+    {
+      "symbols": [
+        {"proName":"NASDAQ:AMZN","title":"AMZN"},
+        {"proName":"NYSE:HIMS","title":"HIMS"},
+        {"proName":"NASDAQ:IBIT","title":"IBIT"},
+        {"proName":"AMEX:IVV","title":"IVV"},
+        {"proName":"NASDAQ:MSFT","title":"MSFT"},
+        {"proName":"NASDAQ:NVDA","title":"NVDA"},
+        {"proName":"NASDAQ:SOFI","title":"SOFI"},
+        {"proName":"NYSE:BE","title":"BE"}
+      ],
+      "showSymbolLogo": true,
+      "isTransparent": true,
+      "displayMode": "adaptive",
+      "colorTheme": "dark",
+      "locale": "he"
+    }
+    </script>
+  </div>
+</div>
+<div class="wrap">
+
+  <div class="topbar reveal r1">
+    <div class="topbar-actions">
+      <button class="theme-toggle" id="themeToggle" type="button" aria-label="החלף בין תצוגה כהה לבהירה">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        <span id="themeToggleLabel">תצוגה בהירה</span>
+      </button>
+      <button class="theme-toggle" id="currencyToggle" type="button" aria-label="החלף בין הצגה בדולר לשקל">
+        <span id="currencyToggleLabel">הצג בשקלים</span>
+      </button>
+    </div>
+    <div class="brand">
+      <span class="brand-mark"><i></i><i></i><i></i></span>
+      <div>
+        <div class="brand-name">תיק ההשקעות של אלמוג</div>
+        <div class="brand-sub">מעקב חי · מוקדם ומאוחר כלול</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="hero">
+    <div class="hero-main reveal r2">
+      <div class="hero-label">שווי תיק כולל</div>
+      <div class="status-pill" id="statusPill" style="margin-bottom:16px;">
+        <span class="dot" id="marketDot"></span>
+        <span class="state-label" id="marketStateLabel">בודק מצב שוק…</span>
+        <span class="state-sub" id="marketStateSub"></span>
+      </div>
+      <div class="hero-value num" id="totalValue">-</div>
+      <div class="hero-sub num" id="totalValueILS">טוען שער ₪…</div>
+      <div class="hero-badges">
+        <span class="delta num" id="dailyDelta">-</span>
+        <span class="ils-line num" id="dailyDeltaILS"></span>
+      </div>
+      <div class="hero-updated num" id="lastUpdated">טרם עודכן</div>
+    </div>
+    <div class="hero-stats reveal r3">
+      <div class="hstat">
+        <div class="k">רווח/הפסד כולל</div>
+        <div class="v num" id="totalDelta">-</div>
+        <div class="sub num" id="totalDeltaILS"></div>
+      </div>
+      <div class="hstat">
+        <div class="k">עלות כוללת</div>
+        <div class="v num" id="chipCost">-</div>
+      </div>
+      <div class="hstat">
+        <div class="k">שינוי יומי (משוקלל)</div>
+        <div class="v num" id="chipDaily">-</div>
+      </div>
+      <div class="hstat">
+        <div class="k">שינוי יומי (בסכום)</div>
+        <div class="v num" id="chipDailyDollar">-</div>
+      </div>
+      <div class="hstat">
+        <div class="k">שינוי במסחר מוקדם / מאוחר</div>
+        <div class="v num" id="chipExtHours">0.00%</div>
+        <div class="sub num" id="chipExtHoursDollar"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="movers-bar reveal r4">
+    <div class="mover-card">
+      <div class="mover-label">המניה החזקה ביותר היום</div>
+      <div class="mover-row">
+        <div class="mover-ticker num" id="bestMoverTicker">-</div>
+        <div class="mover-pct num" id="bestMoverPct">-</div>
+      </div>
+      <div class="mover-sub num" id="bestMoverSub"></div>
+    </div>
+    <div class="mover-card">
+      <div class="mover-label">המניה החלשה ביותר היום</div>
+      <div class="mover-row">
+        <div class="mover-ticker num" id="worstMoverTicker">-</div>
+        <div class="mover-pct num" id="worstMoverPct">-</div>
+      </div>
+      <div class="mover-sub num" id="worstMoverSub"></div>
+    </div>
+  </div>
+
+  <div class="controls reveal r4">
+    <select id="sortSelect" aria-label="מיון הטבלה">
+      <option value="valueDesc" selected>גודל בתיק (גבוה→נמוך)</option>
+      <option value="original">סדר מקורי</option>
+      <option value="valueAsc">גודל בתיק (נמוך→גבוה)</option>
+      <option value="plPctDesc">רווח/הפסד % (גבוה→נמוך)</option>
+      <option value="plPctAsc">רווח/הפסד % (נמוך→גבוה)</option>
+      <option value="dailyDesc">שינוי יומי (גבוה→נמוך)</option>
+      <option value="ticker">אלפביתי (טיקר)</option>
+    </select>
+    <button id="refresh">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+      רענן עכשיו
+    </button>
+  </div>
+
+  <div class="table-card reveal r5">
+    <table>
+      <thead>
+        <tr>
+          <th>נייר</th>
+          <th class="num">מחיר קניה ממוצע</th>
+          <th class="num">מספר מניות</th>
+          <th class="num">מחיר נוכחי</th>
+          <th class="num">שווי שוק</th>
+          <th class="num">רווח/הפסד</th>
+          <th class="num">רווח/הפסד %</th>
+          <th class="num">% מהתיק</th>
+          <th class="num">שינוי יומי</th>
+          <th>מצב שוק</th>
+        </tr>
+      </thead>
+      <tbody id="holdingsBody"></tbody>
+      <tfoot>
+        <tr>
+          <td>סה״כ</td>
+          <td class="num">-</td>
+          <td class="num">-</td>
+          <td class="num">-</td>
+          <td class="num num" id="footValue">-</td>
+          <td class="num num" id="footPL">-</td>
+          <td class="num num" id="footPLPct">-</td>
+          <td class="num">100%</td>
+          <td class="num num" id="footDaily">-</td>
+          <td>-</td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+
+  <div class="chart-bento reveal r5b">
+    <div class="chart-pane">
+      <div class="chart-title">התפלגות התיק לפי אחזקה</div>
+      <div id="donutChart"></div>
+    </div>
+    <div class="chart-pane">
+      <div class="chart-title">תשואה % לפי נייר (ממוין)</div>
+      <div id="barChart"></div>
+    </div>
+  </div>
+
+  <div class="info-section">
+    <div class="info-heading">מה כל נייר בתיק בעצם</div>
+    <div class="info-list" id="infoGrid"></div>
+  </div>
+
+  <footer>
+    נתונים מגיע מ-Yahoo Finance (ציטוט לא רשמי, ייתכן עיכוב של כמה דקות) · מתעדכן אוטומטית כל 60 שניות ·
+    זהו כלי מעקב אישי בלבד ואינו מהווה ייעוץ השקעות
+  </footer>
+</div>
+
+<script>
+/* ====== עריכת החזקות: כאן מעדכנים כשמוסיפים/משנים נייר ====== */
+const HOLDINGS = [
+  { ticker:'AMZN', name:'Amazon.com Inc',                avgCost:216.97, shares:55,
+    desc:'חברת המסחר האלקטרוני והענן הגדולה בעולם - ריטייל אונליין, AWS (שירותי הענן המובילים בעולם), פרסום דיגיטלי ועוד.' },
+  { ticker:'HIMS', name:'Hims & Hers Health Inc',        avgCost:47.34,  shares:85,
+    desc:'חברת טלה-רפואה אמריקאית שמציעה טיפולים ומרשמים (כמו תרופות לירידה במשקל, טיפוח ובריאות) ישירות דרך האפליקציה, בלי ביקור פיזי אצל רופא.' },
+  { ticker:'IBIT', name:'iShares Bitcoin Trust',          avgCost:59.6,   shares:50,
+    desc:'קרן סל של בלאקרוק שמחזיקה ביטקוין בפועל (Spot Bitcoin ETF) - חשיפה ישירה למחיר הביטקוין בלי צורך בארנק קריפטו עצמאי.' },
+  { ticker:'IVV',  name:'iShares Core S&P 500 ETF',       avgCost:555.74, shares:30,
+    desc:'קרן סל שעוקבת אחרי מדד S&P 500 - 500 החברות הגדולות בבורסה האמריקאית. מקבילה ל-VOO. פיזור רחב על כל המשק.' },
+  { ticker:'MSFT', name:'Microsoft Corp',                 avgCost:389.9382, shares:22,
+    desc:'חברת התוכנה והענן הגדולה בעולם. מוכרת בעיקר בזכות Windows, Office, ומערכת הענן Azure.' },
+  { ticker:'NVDA', name:'NVIDIA Corp',                    avgCost:154.49, shares:85,
+    desc:'חברת השבבים המובילה בעולם ל-AI ולמחשוב מקבילי - יצרנית ה-GPUs שמניעים את מהפכת הבינה המלאכותית.' },
+  { ticker:'SOFI', name:'SoFi Technologies Inc',          avgCost:13.8196, shares:392,
+    desc:'חברת פינטק אמריקאית - בנק דיגיטלי שמציע הלוואות, חסכונות והשקעות דרך אפליקציה אחת.' },
+  { ticker:'BE',   name:'Bloom Energy Corp',              avgCost:232.75, shares:26,
+    desc:'חברת אנרגיה אמריקאית שמייצרת תאי דלק (Fuel Cells) לייצור חשמל נקי ואמין - נהנית מהביקוש הגובר לחשמל למרכזי נתונים של AI.' },
+];
+/* ============================================================ */
+
+const REFRESH_MS = 60000; // רענון אוטומטי כל 60 שניות
+
+/* מפתח Finnhub שלכם (חינמי, קיבלתם אותו אחרי הרשמה ב-finnhub.io) -
+   זה המקור העיקרי והאמין למחיר, שווי ורווח/הפסד. גישה ישירה מהדפדפן, בלי proxy. */
+const FINNHUB_API_KEY = 'd9vhlopr01qgk75ogp2gd9vhlopr01qgk75ogp30';
+
+const fmtUSD = n => n==null || isNaN(n) ? '-' : '$' + n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+const fmtILS = n => n==null || isNaN(n) ? '' : '₪' + Math.round(n).toLocaleString('he-IL');
+const fmtPct = n => n==null || isNaN(n) ? '-' : (n>=0?'+':'') + (n*100).toFixed(2) + '%';
+const fmtPctRaw = n => n==null || isNaN(n) ? '-' : (n>=0?'+':'') + n.toFixed(2) + '%';
+const clsFor = n => n==null || isNaN(n) ? 'flat' : (n>0 ? 'gain' : n<0 ? 'loss' : 'flat');
+
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+// שער דולר-שקל, לתצוגה משנית קטנה בלבד. שני מקורות חינמיים, בלי מפתח - אם הראשון
+// נכשל, מנסים את השני. מתעדכן פעם ביום, לא מיועד למסחר, רק לקבל מושג בשקלים.
+let usdIlsRate = null;
+
+// טוגל $/₪ עבור המספרים בריבועי הסיכום (שווי תיק, רווח/הפסד, שינוי יומי וכו') -
+// ברירת מחדל דולר. הטבלה עצמה (מחיר, שווי שוק, רווח/הפסד לכל נייר) נשארת תמיד
+// בדולר, כי שם הנתון "הגולמי" מהמקור וזה לא חלק מהבעיה של "שתי שורות כפולות".
+let currencyMode = 'USD';
+function fmtMoney(usd){
+  if(usd == null || isNaN(usd)) return '-';
+  if(currencyMode === 'ILS'){
+    return usdIlsRate ? fmtILS(usd * usdIlsRate) : 'טוען שער…';
+  }
+  return fmtUSD(usd);
+}
+async function loadExchangeRate(){
+  const sources = [
+    async () => {
+      const res = await fetch('https://api.frankfurter.app/latest?from=USD&to=ILS');
+      const data = await res.json();
+      return data?.rates?.ILS;
+    },
+    async () => {
+      const res = await fetch('https://open.er-api.com/v6/latest/USD');
+      const data = await res.json();
+      return data?.rates?.ILS;
+    },
+  ];
+  for(const getRate of sources){
+    try{
+      const rate = await getRate();
+      if(rate){
+        usdIlsRate = rate;
+        renderTable();
+        return;
+      }
+    }catch(e){
+      console.warn('שגיאה בטעינת שער דולר-שקל ממקור אחד, מנסה מקור נוסף:', e);
+    }
+  }
+  console.warn('לא ניתן לטעון שער דולר-שקל משום מקור זמין.');
+}
+
+// מקור עיקרי ואמין: Finnhub - קריאה ישירה מהדפדפן, בלי proxy, מהיר כמו TradingView
+// כי זו תשתית API אמיתית ולא פריצה סביב הגבלות דפדפן.
+async function fetchFinnhubQuote(ticker, attempt=0){
+  try{
+    const url = `https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(ticker)}&token=${FINNHUB_API_KEY}`;
+    const res = await fetch(url);
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const data = await res.json();
+    if(data.c == null || data.c === 0) throw new Error('אין נתונים לנייר הזה');
+    return data; // { c: מחיר נוכחי, pc: סגירה קודמת, ... }
+  }catch(e){
+    if(attempt < 2){
+      await sleep(1000 + attempt*800);
+      return fetchFinnhubQuote(ticker, attempt+1);
+    }
+    throw e;
+  }
+}
+
+async function fetchWithTimeout(url, ms){
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  try{
+    return await fetch(url, { signal: controller.signal });
+  }finally{
+    clearTimeout(timer);
+  }
+}
+
+// Worker אישי ב-Cloudflare (חינמי) שמביא נתוני pre/after-market מ-Yahoo Finance
+// (v7/finance/quote, עם אימות crumb+cookie שהוא מטפל בו בעצמו בצד שרת) ומחזיר
+// אותם עם CORS פתוח. נשלף פעם אחת לכל רענון, לכל הטיקרים יחד (מופרדים בפסיק)
+// כדי לחסוך קריאות - ולא לכל נייר בנפרד. אם ה-Worker לא זמין, פשוט אין העשרה
+// הפעם, אבל זה לא פוגע בשורה או בחישובים העיקריים (שכבר הצליחו דרך Finnhub).
+const USER_WORKER_PROXY = 'https://yahoo-quote-proxy.97shek.workers.dev/?ticker=';
+
+async function fetchAllExtendedHoursMeta(tickers){
+  try{
+    const url = USER_WORKER_PROXY + encodeURIComponent(tickers.join(','));
+    const res = await fetchWithTimeout(url, 8000);
+    if(res.ok){
+      const data = await res.json();
+      const results = data?.quoteResponse?.result || [];
+      const map = {};
+      results.forEach(r => { if(r && r.symbol) map[r.symbol] = r; });
+      return map;
+    }
+  }catch(e){
+    // ה-Worker האישי לא זמין כרגע - ממשיכים בלי המידע המורחב הפעם
+  }
+  return {};
+}
+
+// מריץ פונקציות אסינכרוניות ברשימה במקבצים קטנים (batches), עם השהיה בין מקבץ למקבץ -
+// כדי לא להציף את שרת ה-proxy החינמי ולהימנע מ-rate limiting.
+async function runInBatches(items, batchSize, gapMs, fn){
+  const results = new Array(items.length);
+  for(let start=0; start<items.length; start+=batchSize){
+    const batch = items.slice(start, start+batchSize);
+    const batchResults = await Promise.all(batch.map((item,i)=> fn(item, start+i)));
+    batchResults.forEach((r,i)=> results[start+i] = r);
+    if(start+batchSize < items.length) await sleep(gapMs);
+  }
+  return results;
+}
+
+function marketStateInfo(state){
+  switch(state){
+    case 'PRE':
+    case 'PREPRE':   return { label:'מסחר מוקדם', sub:'Pre-Market', cls:'pre',  dotLive:true };
+    case 'REGULAR':  return { label:'השוק פתוח',   sub:'Regular Hours', cls:'open', dotLive:true };
+    case 'POST':
+    case 'POSTPOST': return { label:'מסחר מאוחר',  sub:'After-Hours', cls:'post', dotLive:true };
+    case 'CLOSED':   return { label:'השוק סגור',   sub:'Closed', cls:'closed', dotLive:false };
+    default:         return { label:'לא ידוע',     sub:state||'', cls:'closed', dotLive:false };
+  }
+}
+
+function extendedBadge(meta){
+  const state = meta.marketState;
+  if(state === 'PRE' || state === 'PREPRE'){
+    if(meta.preMarketPrice == null) return `<span class="badge pre">מסחר מוקדם</span>`;
+    const pct = meta.preMarketChangePercent;
+    const pctHtml = pct != null ? `<div class="ext-pct num ${clsFor(pct)}">${fmtPctRaw(pct)}</div>` : '';
+    return `<span class="badge pre">מסחר מוקדם</span><div class="ext-price num">${fmtUSD(meta.preMarketPrice)}</div>${pctHtml}`;
+  }
+  if(state === 'POST' || state === 'POSTPOST'){
+    if(meta.postMarketPrice == null) return `<span class="badge post">מסחר מאוחר</span>`;
+    const pct = meta.postMarketChangePercent;
+    const pctHtml = pct != null ? `<div class="ext-pct num ${clsFor(pct)}">${fmtPctRaw(pct)}</div>` : '';
+    return `<span class="badge post">מסחר מאוחר</span><div class="ext-price num">${fmtUSD(meta.postMarketPrice)}</div>${pctHtml}`;
+  }
+  if(state === 'REGULAR'){
+    return `<span class="badge open">מסחר רגיל</span>`;
+  }
+  return `<span class="badge closed">שוק סגור</span>`;
+}
+
+// חישוב מצב השוק בפועל (ניו יורק) לפי השעה הנוכחית - ברירת מחדל אמינה
+// שלא מניחה "השוק פתוח" סתם, גם אם הניסיון להביא נתוני Yahoo נכשל.
+function getUSMarketState(){
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    weekday: 'short', hour: '2-digit', minute: '2-digit', hour12: false,
+  }).formatToParts(new Date()).reduce((acc,p) => { acc[p.type] = p.value; return acc; }, {});
+
+  if(parts.weekday === 'Sat' || parts.weekday === 'Sun') return 'CLOSED';
+
+  const minutes = parseInt(parts.hour, 10) * 60 + parseInt(parts.minute, 10);
+  const PRE_START = 4*60, REGULAR_START = 9*60+30, REGULAR_END = 16*60, POST_END = 20*60;
+
+  if(minutes >= PRE_START && minutes < REGULAR_START) return 'PRE';
+  if(minutes >= REGULAR_START && minutes < REGULAR_END) return 'REGULAR';
+  if(minutes >= REGULAR_END && minutes < POST_END) return 'POST';
+  return 'CLOSED';
+  // הערה: זה לא מביא בחשבון חגי בורסה אמריקאיים (כמו חג ההודיה) - בימים כאלה
+  // ייתכן שהתג יראה "מסחר רגיל" בזמן שהבורסה בפועל סגורה.
+}
+
+let rows = HOLDINGS.map(h => ({...h, marketState:null, error:null}));
+
+function renderSkeleton(){
+  const tbody = document.getElementById('holdingsBody');
+  tbody.innerHTML = rows.map(h => `
+    <tr data-ticker="${h.ticker}">
+      <td>
+        <div class="ticker num">${h.ticker}</div>
+        <div class="ticker-name">${h.name}</div>
+      </td>
+      <td class="num">${fmtUSD(h.avgCost)}</td>
+      <td class="num">${h.shares.toLocaleString('en-US',{maximumFractionDigits:4})}</td>
+      <td class="num"><span class="skeleton"></span></td>
+      <td class="num"><span class="skeleton"></span></td>
+      <td class="num"><span class="skeleton"></span></td>
+      <td class="num"><span class="skeleton"></span></td>
+      <td class="num"><span class="skeleton"></span></td>
+      <td class="num"><span class="skeleton"></span></td>
+      <td><span class="skeleton"></span></td>
+    </tr>
+  `).join('');
+}
+
+function renderTable(){
+  // תמיד ממיינים לפני הרינדור, כברירת מחדל לפי גודל בתיק (גבוה→נמוך) - כך שהטבלה
+  // והעוגה (שמצוירת ישירות מה-rows ב-renderCharts) תמיד עקביות זו עם זו ומתעדכנות
+  // חי כשהמשקל היחסי משתנה, לא רק בטעינה הראשונה.
+  sortRows();
+  const tbody = document.getElementById('holdingsBody');
+  const totalValue = rows.reduce((s,h)=> s + (h.value||0), 0);
+
+  tbody.innerHTML = rows.map(h => {
+    if(h.error){
+      return `<tr data-ticker="${h.ticker}">
+        <td><div class="ticker num">${h.ticker}</div><div class="ticker-name">${h.name}</div></td>
+        <td class="num">${fmtUSD(h.avgCost)}</td>
+        <td class="num">${h.shares.toLocaleString('en-US',{maximumFractionDigits:4})}</td>
+        <td colspan="6" class="err">טוען... ינסה שוב אוטומטית</td>
+        <td></td>
+      </tr>`;
+    }
+    const pct = totalValue ? (h.value/totalValue) : 0;
+    return `<tr data-ticker="${h.ticker}" class="row-${clsFor(h.dailyPct)}">
+      <td>
+        <div class="ticker num">${h.ticker}</div>
+        <div class="ticker-name">${h.name}</div>
+      </td>
+      <td class="num">${fmtUSD(h.avgCost)}</td>
+      <td class="num">${h.shares.toLocaleString('en-US',{maximumFractionDigits:4})}</td>
+      <td class="num">${fmtUSD(h.price)}</td>
+      <td class="num">${fmtUSD(h.value)}</td>
+      <td class="num ${clsFor(h.pl)}">${h.pl>=0?'+':''}${fmtUSD(h.pl).replace('$','$')}</td>
+      <td class="num ${clsFor(h.plPct)}">${fmtPct(h.plPct)}</td>
+      <td class="num">${(pct*100).toFixed(1)}%</td>
+      <td class="num ${clsFor(h.dailyPct)}">${fmtPct(h.dailyPct)}<div class="sub-num num">${h.dailyDollarTotal>=0?'+':''}${fmtUSD(h.dailyDollarTotal)}</div></td>
+      <td>${h.badgeHtml}</td>
+    </tr>`;
+  }).join('');
+
+  // totals
+  const totalCost = rows.reduce((s,h)=> s + (h.avgCost * h.shares), 0);
+  const totalPL = totalValue - totalCost;
+  const totalPLPct = totalCost ? totalPL/totalCost : 0;
+  const weightedDaily = totalValue ? rows.reduce((s,h)=> s + (h.dailyPct||0)*(h.value||0), 0)/totalValue : 0;
+  const totalDailyDollar = rows.reduce((s,h)=> s + (h.dailyDollarTotal||0), 0);
+
+  const totalValueEl = document.getElementById('totalValue');
+  totalValueEl.textContent = fmtMoney(totalValue);
+  totalValueEl.className = 'hero-value num ' + clsFor(totalPL);
+
+  const dailyEl = document.getElementById('dailyDelta');
+  dailyEl.textContent = fmtPct(weightedDaily) + ' (' + (totalDailyDollar>=0?'+':'') + fmtMoney(totalDailyDollar) + ')';
+  dailyEl.className = 'delta num ' + clsFor(totalDailyDollar);
+
+  const deltaEl = document.getElementById('totalDelta');
+  deltaEl.textContent = fmtPct(totalPLPct) + ' (' + (totalPL>=0?'+':'') + fmtMoney(totalPL) + ')';
+  deltaEl.className = 'v num ' + clsFor(totalPL);
+
+  // טוגל $/₪: כרגע כל המספרים למעלה כבר מוצגים במטבע הנבחר (fmtMoney), אז אין
+  // יותר צורך בשורה שנייה כפולה - משאירים כאן רק ציון שקוף של שער ההמרה בשימוש.
+  const ilsValueEl = document.getElementById('totalValueILS');
+  if(ilsValueEl){
+    ilsValueEl.textContent = usdIlsRate ? 'שער: ' + usdIlsRate.toFixed(3) + ' ₪ לדולר' : 'טוען שער ₪…';
+  }
+  const ilsDailyEl = document.getElementById('dailyDeltaILS');
+  if(ilsDailyEl) ilsDailyEl.textContent = '';
+  const ilsPLEl = document.getElementById('totalDeltaILS');
+  if(ilsPLEl) ilsPLEl.textContent = '';
+
+  document.getElementById('chipCost').textContent = fmtMoney(totalCost);
+  const chipDaily = document.getElementById('chipDaily');
+  chipDaily.textContent = fmtPct(weightedDaily);
+  chipDaily.className = 'v num ' + clsFor(weightedDaily);
+
+  const chipDailyDollar = document.getElementById('chipDailyDollar');
+  chipDailyDollar.textContent = (totalDailyDollar>=0?'+':'') + fmtMoney(totalDailyDollar);
+  chipDailyDollar.className = 'v num ' + clsFor(totalDailyDollar);
+
+  // שינוי במסחר מוקדם/מאוחר: משוקלל לפי שווי האחזקות שבפועל נמצאות כרגע ב-PRE/POST.
+  // h.extPct מתאפס אוטומטית ל-null ברגע שהמסחר הרגיל מתחיל (ראו fetchOneRow) - כך
+  // שהשורה הזו "מתאפסת" מעצמה לכשהשוק נפתח, בלי לוגיקה נוספת.
+  const extRows = rows.filter(h => h.extPct != null && h.value != null);
+  const extValueSum = extRows.reduce((s,h)=> s + h.value, 0);
+  const weightedExtPct = extValueSum ? extRows.reduce((s,h)=> s + (h.extPct/100)*h.value, 0) / extValueSum * 100 : 0;
+  const extDollarImpact = extRows.reduce((s,h)=> s + h.value*(h.extPct/100), 0);
+  const chipExtHours = document.getElementById('chipExtHours');
+  const chipExtHoursDollar = document.getElementById('chipExtHoursDollar');
+  if(chipExtHours){
+    chipExtHours.textContent = fmtPctRaw(weightedExtPct);
+    chipExtHours.className = 'v num ' + clsFor(weightedExtPct);
+  }
+  if(chipExtHoursDollar){
+    chipExtHoursDollar.textContent = (extDollarImpact>=0?'+':'') + fmtMoney(extDollarImpact);
+  }
+
+  // המניה החזקה/חלשה ביותר היום - לפי שינוי יומי %, בלי קשר לסימן (יכול להיות
+  // ששתיהן חיוביות או ששתיהן שליליות, אם כל התיק עלה/ירד באותו כיוון).
+  const moversPool = rows.filter(h => !h.error && h.dailyPct != null);
+  if(moversPool.length){
+    const best = moversPool.reduce((a,b) => (b.dailyPct > a.dailyPct ? b : a));
+    const worst = moversPool.reduce((a,b) => (b.dailyPct < a.dailyPct ? b : a));
+    const bestTickerEl = document.getElementById('bestMoverTicker');
+    const bestPctEl = document.getElementById('bestMoverPct');
+    const bestSubEl = document.getElementById('bestMoverSub');
+    if(bestTickerEl) bestTickerEl.textContent = best.ticker;
+    if(bestPctEl){ bestPctEl.textContent = fmtPct(best.dailyPct); bestPctEl.className = 'mover-pct num ' + clsFor(best.dailyPct); }
+    if(bestSubEl) bestSubEl.textContent = (best.dailyDollarTotal>=0?'+':'') + fmtMoney(best.dailyDollarTotal);
+
+    const worstTickerEl = document.getElementById('worstMoverTicker');
+    const worstPctEl = document.getElementById('worstMoverPct');
+    const worstSubEl = document.getElementById('worstMoverSub');
+    if(worstTickerEl) worstTickerEl.textContent = worst.ticker;
+    if(worstPctEl){ worstPctEl.textContent = fmtPct(worst.dailyPct); worstPctEl.className = 'mover-pct num ' + clsFor(worst.dailyPct); }
+    if(worstSubEl) worstSubEl.textContent = (worst.dailyDollarTotal>=0?'+':'') + fmtMoney(worst.dailyDollarTotal);
+  }
+
+  document.getElementById('footValue').textContent = fmtUSD(totalValue);
+  const footPL = document.getElementById('footPL');
+  footPL.textContent = (totalPL>=0?'+':'') + fmtUSD(totalPL);
+  footPL.className = 'num ' + clsFor(totalPL);
+  const footPLPct = document.getElementById('footPLPct');
+  footPLPct.textContent = fmtPct(totalPLPct);
+  footPLPct.className = 'num ' + clsFor(totalPLPct);
+  const footDaily = document.getElementById('footDaily');
+  footDaily.textContent = fmtPct(weightedDaily);
+  footDaily.className = 'num ' + clsFor(weightedDaily);
+
+  // overall market state — take the most common / first successful
+  const withState = rows.find(h => h.marketState);
+  if(withState){
+    const info = marketStateInfo(withState.marketState);
+    const dot = document.getElementById('marketDot');
+    dot.className = 'dot' + (info.dotLive ? ' live' : '');
+    document.getElementById('statusPill').className = 'status-pill ' + info.cls;
+    document.getElementById('marketStateLabel').textContent = info.label;
+    document.getElementById('marketStateSub').textContent = info.sub;
+  }
+
+  document.getElementById('lastUpdated').textContent = 'עודכן ' + new Date().toLocaleTimeString('he-IL');
+  renderCharts();
+}
+
+async function fetchOneRow(h, extMap){
+  try{
+    const q = await fetchFinnhubQuote(h.ticker);
+    h.error = null;
+    h.price = q.c;
+    h.cost = h.avgCost * h.shares;
+    h.prevClose = q.pc;
+    h.dailyPct = q.pc ? (q.c - q.pc) / q.pc : 0;
+    h.dailyDollarTotal = q.pc ? (q.c - q.pc) * h.shares : 0;
+    h.marketState = getUSMarketState();
+    h.badgeHtml = extendedBadge({ marketState: h.marketState });
+
+    // העשרה לא-חוסמת: אם הבאנו כבר (בתחילת הריענון) נתוני pre/after-market מ-Yahoo
+    // דרך ה-Worker, נשתמש בהם כאן רק להעשרת התג ("מצב שוק") ולשורת הסיכום הייעודית -
+    // בכוונה לא מעדכנים את h.price: עמודות הטבלה (מחיר נוכחי, שווי שוק, רווח/הפסד,
+    // שינוי יומי) נשארות תמיד לפי המסחר הרגיל בלבד (Finnhub), בלי שהפרה/פוסט-מארקט
+    // "מטמיע" את עצמו לתוך התשואה המוצגת שם.
+    h.extPct = null;
+    const meta = extMap && extMap[h.ticker];
+    if(meta && meta.marketState){
+      h.marketState = meta.marketState;
+      h.badgeHtml = extendedBadge(meta);
+      if((meta.marketState === 'PRE' || meta.marketState === 'PREPRE') && meta.preMarketChangePercent != null){
+        h.extPct = meta.preMarketChangePercent;
+      } else if((meta.marketState === 'POST' || meta.marketState === 'POSTPOST') && meta.postMarketChangePercent != null){
+        h.extPct = meta.postMarketChangePercent;
+      }
+    }
+
+    h.value = h.price * h.shares;
+    h.pl = h.value - h.cost;
+    h.plPct = h.cost ? h.pl / h.cost : 0;
+  }catch(e){
+    h.error = (e.message || 'שגיאה').slice(0,60);
+  }
+}
+
+async function refreshAll(){
+  const btn = document.getElementById('refresh');
+  btn.classList.add('spinning');
+  renderSkeleton();
+
+  // קריאה אחת ל-Worker עבור כל הטיקרים יחד, לפני שמתחילים למשוך מחירים מ-Finnhub
+  const extMap = await fetchAllExtendedHoursMeta(rows.map(h => h.ticker));
+
+  // חשוב: מעבירים עותק (rows.slice()) ולא את rows עצמו - כי renderTable() בתוך
+  // הלולאה קוראת ל-sortRows() וממיינת את rows במקום. אם היינו מעבירים את rows
+  // עצמו, המיון-תוך-כדי-איטרציה היה מבלבל את runInBatches (שמתקדם לפי אינדקסים
+  // במערך) וגורם לדילוג/כפילות בשליפת ניירות. rows.slice() שומר על סדר האיטרציה
+  // יציב, בעוד שהאובייקטים עצמם (h) עדיין מתעדכנים במקום כרגיל.
+  await runInBatches(rows.slice(), 3, 700, async (h) => {
+    await fetchOneRow(h, extMap);
+    renderTable(); // עדכון מיידי כל שורה שמסתיימת, בלי לחכות לכולן
+  });
+
+  renderTable();
+  setTimeout(()=> btn.classList.remove('spinning'), 600);
+
+  // ניסיונות חוזרים שקטים ברקע לניירות שנכשלו - בלי שהמשתמש צריך ללחוץ על שום דבר
+  quietRetryFailedRows();
+}
+
+async function quietRetryFailedRows(pass=1){
+  const failed = rows.filter(h => h.error);
+  if(failed.length === 0 || pass > 4) return;
+  await sleep(4000 + pass*2000);
+  const extMap = await fetchAllExtendedHoursMeta(failed.map(h => h.ticker));
+  await runInBatches(failed, 2, 900, async (h) => {
+    await fetchOneRow(h, extMap);
+  });
+  renderTable();
+  quietRetryFailedRows(pass+1);
+}
+
+const CHART_COLORS = ['#4FD1C5','#57A6F2','#F2B84A','#3FDB8F','#FF6B7F','#B69CF7','#F2A46F','#828B9C'];
+
+const originalTickerOrder = HOLDINGS.map(h => h.ticker);
+const byOrig = (a,b) => originalTickerOrder.indexOf(a.ticker) - originalTickerOrder.indexOf(b.ticker);
+const SORTERS = {
+  original:   byOrig,
+  valueDesc:  (a,b) => (b.value||0) - (a.value||0),
+  valueAsc:   (a,b) => (a.value||0) - (b.value||0),
+  plPctDesc:  (a,b) => (b.plPct||0) - (a.plPct||0),
+  plPctAsc:   (a,b) => (a.plPct||0) - (b.plPct||0),
+  dailyDesc:  (a,b) => (b.dailyPct||0) - (a.dailyPct||0),
+  ticker:     (a,b) => a.ticker.localeCompare(b.ticker),
+};
+// ברירת המחדל: תמיד לפי גודל בתיק (גבוה→נמוך) - גם בטבלה וגם בעוגה (שמצוירת
+// ישירות מה-rows). ממוין מחדש בכל רענון נתונים, כך שהסדר תמיד תואם את המשקל
+// העדכני בפועל, ולא רק בטעינה הראשונה. אם המשתמש בוחר מיון אחר מהתפריט - מכבדים
+// את הבחירה שלו במקום זה.
+let currentSortMode = 'valueDesc';
+function sortRows(){
+  rows.sort(SORTERS[currentSortMode] || SORTERS.valueDesc);
+}
+
+document.getElementById('sortSelect').addEventListener('change', (e) => {
+  currentSortMode = e.target.value;
+  sortRows();
+  renderTable();
+});
+
+// טבעת חלקה: כל אחזקה מצוירת כ-<circle> עם stroke-dasharray, קצוות מעוגלים
+// (stroke-linecap round) ורווח קטן בין הפלחים. ה-tooltip מוצג ב-delegation אחת,
+// לא נבנה מחדש בכל רינדור.
+function renderDonutChart(data){
+  const el = document.getElementById('donutChart');
+  if(!el) return;
+  const total = data.reduce((s,d)=> s + d.value, 0);
+  if(data.length === 0 || total <= 0){
+    el.innerHTML = '<div class="chart-title" style="padding:30px 0;">אין עדיין נתונים</div><div class="chart-tooltip" id="donutTooltip"></div>';
+    return;
+  }
+
+  const R = 84, C = 2 * Math.PI * R, STROKE = 28;
+  const GAP = data.length > 1 ? 7 : 0;
+
+  let cumulative = 0;
+  let circles = '';
+  data.forEach((d,i) => {
+    const frac = d.value / total;
+    const len = C * frac;
+    const segLen = Math.max(len - GAP, 0.0001);
+    const dashArray = `${segLen} ${(C - segLen).toFixed(2)}`;
+    const dashOffset = -(cumulative + GAP/2);
+    circles += `<circle cx="110" cy="110" r="${R}" fill="none" stroke="${CHART_COLORS[i % CHART_COLORS.length]}"
+      stroke-width="${STROKE}" stroke-linecap="round"
+      stroke-dasharray="${dashArray}" stroke-dashoffset="${dashOffset.toFixed(2)}"
+      data-ticker="${d.ticker}" data-pct="${(frac*100).toFixed(1)}"></circle>`;
+    cumulative += len;
+  });
+
+  const legend = data.map((d,i) => {
+    const frac = total ? (d.value/total*100) : 0;
+    return `<div class="item"><span class="swatch" style="background:${CHART_COLORS[i % CHART_COLORS.length]}"></span>${d.ticker} · ${frac.toFixed(1)}%</div>`;
+  }).join('');
+
+  el.innerHTML = `
+    <svg viewBox="0 0 220 220" style="width:100%; max-width:230px; display:block; margin:0 auto;">
+      <g transform="rotate(-90 110 110)">
+        <circle cx="110" cy="110" r="${R}" fill="none" stroke="var(--border-soft)" stroke-width="${STROKE}"></circle>
+        ${circles}
+      </g>
+    </svg>
+    <div class="chart-legend">${legend}</div>
+    <div class="chart-tooltip" id="donutTooltip"></div>
+  `;
+}
+
+// event delegation אחת על הקונטיינר היציב - עובדת גם אחרי שה-innerHTML מתחלף בכל רענון
+(function setupDonutTooltip(){
+  const container = document.getElementById('donutChart');
+  if(!container) return;
+  container.addEventListener('mousemove', (e) => {
+    const seg = e.target.closest('circle[data-ticker]');
+    const tooltip = document.getElementById('donutTooltip');
+    if(!tooltip) return;
+    if(!seg){ tooltip.classList.remove('show'); return; }
+    const rect = container.getBoundingClientRect();
+    tooltip.style.left = (e.clientX - rect.left) + 'px';
+    tooltip.style.top = (e.clientY - rect.top) + 'px';
+    tooltip.textContent = seg.dataset.ticker + ' · ' + seg.dataset.pct + '%';
+    tooltip.classList.add('show');
+  });
+  container.addEventListener('mouseleave', () => {
+    const tooltip = document.getElementById('donutTooltip');
+    if(tooltip) tooltip.classList.remove('show');
+  });
+})();
+
+function renderBarChart(data){
+  const el = document.getElementById('barChart');
+  if(!el) return;
+  if(data.length === 0){ el.innerHTML = '<div class="chart-title" style="padding:30px 0;">אין עדיין נתונים</div><div class="chart-tooltip" id="barTooltip"></div>'; return; }
+
+  const sorted = [...data].sort((a,b) => (b.plPct||0) - (a.plPct||0));
+  const maxAbs = Math.max(0.01, ...sorted.map(d => Math.abs(d.plPct||0)));
+  // הריבוע גדל (H) והפדינג הותאם, כדי לפנות מקום לאחוזים גדולים ובולטים יותר
+  const W = 480, H = 310, padTop = 26, padBottom = 52, midY = (H-padTop-padBottom)/2 + padTop;
+  const barW = (W / sorted.length) * 0.64;
+  const gap = (W / sorted.length);
+
+  let bars = '';
+  sorted.forEach((d,i) => {
+    const val = d.plPct || 0;
+    const h = Math.abs(val) / maxAbs * ((H-padTop-padBottom)/2 - 6);
+    const x = i*gap + (gap-barW)/2;
+    const y = val >= 0 ? midY - h : midY;
+    // עוצמת הצבע יחסית לחוזק התשואה: מי שממש בולט (יחסית לנייר החזק/חלש ביותר בתיק)
+    // מקבל ירוק/אדום רווי, ומי שקרוב לאפס נשאר עמום יותר לכיוון אפור - כך שהעין
+    // מיד נמשכת למה שבאמת חזק.
+    const intensity = Math.min(1, Math.abs(val) / maxAbs);
+    const mixPct = Math.round(35 + intensity * 65);
+    const color = val >= 0
+      ? `color-mix(in srgb, var(--gain) ${mixPct}%, var(--muted-dim))`
+      : `color-mix(in srgb, var(--loss) ${mixPct}%, var(--muted-dim))`;
+    const labelY = val >= 0 ? (midY - h - 9) : (midY + h + 19);
+    const delay = (i*0.06).toFixed(2);
+    // כל עמודה "צומחת" מקו האפס: transform-origin נקבע לפי כיוון (למטה עבור עמודות
+    // חיוביות שגדלות כלפי מעלה, למעלה עבור שליליות שגדלות כלפי מטה).
+    bars += `
+      <rect class="bar-rect" x="${x}" y="${y}" width="${barW}" height="${Math.max(h,1)}" rx="4" fill="${color}"
+        style="animation-delay:${delay}s; transform-origin:${val>=0?'bottom':'top'};"
+        data-ticker="${d.ticker}" data-pct="${(val*100).toFixed(2)}"></rect>
+      <text class="bar-label" style="animation-delay:${delay}s;" x="${x+barW/2}" y="${labelY}" text-anchor="middle" font-size="15" font-weight="700" fill="${color}" font-family="IBM Plex Mono, monospace">${(val*100).toFixed(1)}%</text>
+    `;
+  });
+  // ticker labels along the zero line
+  let tickerLabels = '';
+  sorted.forEach((d,i) => {
+    const x = i*gap + gap/2;
+    const delay = (i*0.06).toFixed(2);
+    tickerLabels += `<text class="bar-label" style="animation-delay:${delay}s;" x="${x}" y="${midY + (d.plPct>=0 ? 20 : -16)}" text-anchor="middle" font-size="13.5" fill="var(--text)" font-family="IBM Plex Mono, monospace" font-weight="700">${d.ticker}</text>`;
+  });
+
+  el.innerHTML = `
+    <svg viewBox="0 0 ${W} ${H}" style="width:100%; display:block;">
+      <line x1="0" y1="${midY}" x2="${W}" y2="${midY}" stroke="var(--border)" stroke-width="1"/>
+      ${bars}
+      ${tickerLabels}
+    </svg>
+    <div class="chart-tooltip" id="barTooltip"></div>
+  `;
+}
+
+// event delegation אחת על הקונטיינר היציב של גרף העמודות - אותה טכניקה כמו בעוגה,
+// כך שהיא ממשיכה לעבוד גם אחרי שה-innerHTML מתחלף בכל רענון.
+(function setupBarTooltip(){
+  const container = document.getElementById('barChart');
+  if(!container) return;
+  container.addEventListener('mousemove', (e) => {
+    const bar = e.target.closest('rect[data-ticker]');
+    const tooltip = document.getElementById('barTooltip');
+    if(!tooltip) return;
+    if(!bar){ tooltip.classList.remove('show'); return; }
+    const rect = container.getBoundingClientRect();
+    tooltip.style.left = (e.clientX - rect.left) + 'px';
+    tooltip.style.top = (e.clientY - rect.top) + 'px';
+    const pct = parseFloat(bar.dataset.pct);
+    tooltip.textContent = bar.dataset.ticker + ' · ' + (pct>=0?'+':'') + pct.toFixed(2) + '%';
+    tooltip.classList.add('show');
+  });
+  container.addEventListener('mouseleave', () => {
+    const tooltip = document.getElementById('barTooltip');
+    if(tooltip) tooltip.classList.remove('show');
+  });
+})();
+
+function renderCharts(){
+  const valid = rows.filter(h => !h.error && h.value != null);
+  renderDonutChart(valid.map(h => ({ ticker:h.ticker, value:h.value })));
+  renderBarChart(valid.map(h => ({ ticker:h.ticker, plPct:h.plPct })));
+}
+
+function renderInfoGrid(){
+  const el = document.getElementById('infoGrid');
+  el.innerHTML = HOLDINGS.map(h => `
+    <div class="info-row">
+      <div class="t num">${h.ticker}</div>
+      <div class="d">${h.desc || ''}</div>
+    </div>
+  `).join('');
+}
+
+// מעבר בין תצוגה כהה לבהירה: ברירת המחדל תמיד כהה, אלא אם המשתמש בחר
+// בעבר תצוגה בהירה במפורש (נשמר ב-localStorage, בעטיפת try/catch שלא תשבור
+// את הדף אם האחסון חסום, למשל בתצוגה מקדימה בפרטיות).
+const THEME_KEY = 'almog-portfolio-theme';
+function getStoredTheme(){
+  try{ return localStorage.getItem(THEME_KEY); }catch(e){ return null; }
+}
+function storeTheme(theme){
+  try{ localStorage.setItem(THEME_KEY, theme); }catch(e){}
+}
+function applyTheme(theme){
+  document.documentElement.setAttribute('data-theme', theme);
+  const label = document.getElementById('themeToggleLabel');
+  if(label) label.textContent = theme === 'light' ? 'תצוגה כהה' : 'תצוגה בהירה';
+}
+applyTheme(getStoredTheme() === 'light' ? 'light' : 'dark');
+document.getElementById('themeToggle').addEventListener('click', () => {
+  const next = document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+  applyTheme(next);
+  storeTheme(next);
+});
+
+// מעבר בין הצגה בדולר לשקל בריבועי הסיכום: ברירת המחדל תמיד דולר, אלא אם
+// המשתמש בחר בעבר שקל במפורש (נשמר ב-localStorage, אותה טכניקה כמו הערכת נושא).
+const CURRENCY_KEY = 'almog-portfolio-currency';
+function getStoredCurrency(){
+  try{ return localStorage.getItem(CURRENCY_KEY); }catch(e){ return null; }
+}
+function storeCurrency(mode){
+  try{ localStorage.setItem(CURRENCY_KEY, mode); }catch(e){}
+}
+// render=false בקריאה הראשונית: renderTable() באותו רגע היה מריץ אותה על ה-rows
+// הראשוניים (לפני כל שליפת מחיר), שבהם avgCost/shares כבר קיימים אבל value/pl
+// עדיין לא - וזה היה מחשב שווי תיק=0 מול עלות אמיתית, כלומר "-100%" באדום,
+// ומציג את זה לשבריר שנייה בכל טעינת דף עד ש-refreshAll() מביא נתונים אמיתיים.
+// בקריאה הראשונית רק קובעים את המטבע והטקסט על הכפתור, בלי לרנדר מוקדם מדי;
+// renderSkeleton() ואז refreshAll() כבר מטפלים ברינדור האמיתי מיד אחרי זה.
+function applyCurrency(mode, render=true){
+  currencyMode = mode;
+  const label = document.getElementById('currencyToggleLabel');
+  if(label) label.textContent = mode === 'ILS' ? 'הצג בדולרים' : 'הצג בשקלים';
+  if(render) renderTable();
+}
+applyCurrency(getStoredCurrency() === 'ILS' ? 'ILS' : 'USD', false);
+document.getElementById('currencyToggle').addEventListener('click', () => {
+  const next = currencyMode === 'ILS' ? 'USD' : 'ILS';
+  applyCurrency(next);
+  storeCurrency(next);
+});
+
+document.getElementById('refresh').addEventListener('click', refreshAll);
+renderInfoGrid();
+renderSkeleton();
+loadExchangeRate();
+setInterval(loadExchangeRate, 30 * 60000); // רענון שער החליפין כל חצי שעה
+refreshAll();
+setInterval(refreshAll, REFRESH_MS);
+</script>
+</body>
+</html>
